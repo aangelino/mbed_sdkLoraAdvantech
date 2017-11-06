@@ -1,2 +1,0 @@
-# sdkLoraAdvantech
-NodeWise1510
