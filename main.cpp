@@ -24,7 +24,7 @@ user_interrupt.attach(button_push_isr, IRQ_RISE, 500, true);
 
     while (true) {
         led1 = !led1;
-        pc.printf("\n\r toggle led \n\r");
+        //pc.printf("\n\r toggle led \n\r");
         wait(0.5);
     }
 }
