@@ -27,5 +27,5 @@ else
 fi
 
 #mbed compile -t GCC -m NUCLEO_L443RC  -c
-#mbed compile -t GCC -m NUCLEO_L443RC  -c
-mbed compile -c
+mbed compile -t GCC -m NUCLEO_L443RC  -c
+#mbed compile -c
