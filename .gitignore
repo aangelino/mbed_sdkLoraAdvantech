@@ -1,5 +1,7 @@
 
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
 
 # Distribution dir
 dist
