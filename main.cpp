@@ -68,10 +68,11 @@ int node_printf_to_serial(const char * format, ...)
 	return 0;
 }
 
-/*void pressed()
+void button_push_isr( void )
 {
-    NODE_DEBUG("\n\r button pressed \n\r");
-}*/
+    NODE_DEBUG("\n\r button interrupt \n\r");
+}
+
 
 /** @brief Temperature and humidity sensor read
  *
