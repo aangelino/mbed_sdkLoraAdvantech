@@ -41,6 +41,7 @@ static unsigned int  node_sensor_temp_hum=0; ///<Temperature and humidity sensor
 static unsigned int  g_water_counter=0; ///<var counter global
 
 I2C i2c(PC_1, PC_0); ///<i2C define
+InterruptIn gpio2(PC_7);
 
 /** @brief print message via serial
  *
@@ -134,16 +135,9 @@ static void water_counter_thread(void const *args)
 	{
 	    water_cnt++;
 	    Thread::wait(2000);
-	    //if(cnt==100)
-	    //{
-	      // cnt=0;
-	     	//g_counter=g_counter+(unsigned int )counter_sensor();
-				g_water_counter=water_cnt;
-				//NODE_DEBUG("\n\r *****counter thread\n\r ");
-				//NODE_DEBUG("\n\rwater_counter_thread= %d\n\r ",water_cnt);
-				//NODE_DEBUG("g_water_counter= %d\n\r ",g_water_counter);
 
-	     //}
+				g_water_counter=water_cnt;
+
 	}
 
 }
@@ -559,7 +553,9 @@ int main ()
 
 	Thread::wait(1000);
 
-	//mybutton.fall(&pressed);
+	/*debounce code*/
+	//DebouncedInterrupt user_interrupt(PC_7);
+	//user_interrupt.attach(button_push_isr, IRQ_RISE, 100, true);
 
 	/*
 	 *  Node state loop
