@@ -140,16 +140,7 @@ static void water_counter_thread(void const *args)
 	{
 	    water_cnt++;
 	    Thread::wait(2000);
-	    //if(cnt==100)
-	    //{
-	      // cnt=0;
-	     	//g_counter=g_counter+(unsigned int )counter_sensor();
-				g_water_counter=water_cnt;
-				//NODE_DEBUG("\n\r *****counter thread\n\r ");
-				//NODE_DEBUG("\n\rwater_counter_thread= %d\n\r ",water_cnt);
-				//NODE_DEBUG("g_water_counter= %d\n\r ",g_water_counter);
-
-	     //}
+	    g_water_counter=water_cnt;
 	}
 
 }
@@ -160,7 +151,7 @@ static void water_counter_thread(void const *args)
  */
 int node_tx_done_cb(void)
 {
-	NODE_DEBUG("1.node_state=NODE_STATE_LOWPOWER\r\n");
+	//NODE_DEBUG("1.node_state=NODE_STATE_LOWPOWER\r\n");
 	node_state=NODE_STATE_LOWPOWER;
 	return 0;
 }
@@ -438,7 +429,7 @@ void node_state_loop()
 
 					if(node_state!=NODE_STATE_RX_DONE)
 					{
-						NODE_DEBUG("count_NSLP = % d\n\r ",count_NSLP);
+						//NODE_DEBUG("count_NSLP = % d\n\r ",count_NSLP);
 						if(count_NSLP%NODE_ACTIVE_PERIOD_IN_SEC==0)
 						{
 							NODE_DEBUG("NODE_STATE_ACTIVE\n\r ");
