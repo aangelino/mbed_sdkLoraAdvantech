@@ -55,14 +55,14 @@ int node_printf_to_serial(const char * format, ...)
 	memset(buf, 0, 512+1);
 
 	va_start(ap, format);
-	vsnprintf(buf, sizeof(buf), (char *)format, ap);  
+	vsnprintf(buf, sizeof(buf), (char *)format, ap);
 	va_end(ap);
-	
+
 	for(i=0; i < strlen(buf); i++)
 	{
 		debug_serial.putc(buf[i]);
 	}
-	
+
 	return 0;
 }
 
@@ -71,7 +71,7 @@ int node_printf_to_serial(const char * format, ...)
 /** @brief Temperature and humidity sensor read
  *
  */
-static unsigned int hdc1510_sensor(void) 
+static unsigned int hdc1510_sensor(void)
 {
 	char data_write[3];
 	char data_read[4];
@@ -80,7 +80,7 @@ static unsigned int hdc1510_sensor(void)
 	#define HDC1510_ADDR 0x80
 
 	data_write[0]=HDC1510_REG_TEMP;
-	i2c.write(HDC1510_ADDR, data_write, 1, 1); 
+	i2c.write(HDC1510_ADDR, data_write, 1, 1);
 	Thread::wait(50);
 	i2c.read(HDC1510_ADDR, data_read, 4, 0);
 	float tempval = (float)((data_read[0] << 8 | data_read[1]) * 165.0 / 65536.0 - 40.0);
@@ -90,12 +90,12 @@ static unsigned int hdc1510_sensor(void)
 	unsigned int yy=0;
 	//printf("Temperature: %.2f C\r\n",tempval );
 	/*Humidity*/
-	float hempval = (float)((data_read[2] << 8 | data_read[3]) * 100.0 / 65536.0);   
+	float hempval = (float)((data_read[2] << 8 | data_read[3]) * 100.0 / 65536.0);
 	yy=hempval*100;
 	// printf("Humidity: %.2f %\r\n",hempval);
 
-	return (yy<<16)|ss;	
-	
+	return (yy<<16)|ss;
+
 }
 
 /** @brief Temperature and humidity sensor thread
@@ -104,16 +104,16 @@ static unsigned int hdc1510_sensor(void)
 static void node_sensor_temp_hum_thread(void const *args)
 {
     	int cnt=0;
-    
-    	while(1) 
-	{      
+
+    	while(1)
+	{
 	    cnt++;
-	    Thread::wait(10); 
+	    Thread::wait(10);
 	    if(cnt==100)
-	    {        	
+	    {
 	       cnt=0;
 	     	node_sensor_temp_hum=(unsigned int )hdc1510_sensor();
-					
+
 	     }
 	}
 
@@ -143,7 +143,7 @@ int node_rx_done_cb(struct node_api_ev_rx_done *rx_done_data)
 
 
 /** @brief An example to show version
- *  
+ *
  */
 void node_show_version()
 {
@@ -155,26 +155,26 @@ void node_show_version()
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("Version=%s\r\n", buf_out);
-	}	
+	}
 }
 
 
 
 
 /** @brief An example to set node config
- *  
+ *
  */
 void node_set_config()
 {
 	char deveui[32]={};
 	char devaddr[16]={};
 
-	
+
 	if(nodeApiGetFuseDevEui(deveui,16)!=NODE_API_OK)
 	{
 		NODE_DEBUG("Get fuse DevEui failed\r\n");
 		return;
-	}	
+	}
 
 	nodeApiSetDevEui(deveui);
 	nodeApiSetAppEui("00000000000000ab");
@@ -191,12 +191,8 @@ void node_set_config()
 	nodeApiSetDevAdvwiseTxPwr("20");
 }
 
-
-
-
-
 /** @brief An example to get node config
- *  
+ *
  */
 void node_get_config()
 {
@@ -208,49 +204,49 @@ void node_get_config()
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevEui=%s\r\n", buf_out);
-	}	
+	}
 
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetAppEui(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("AppEui=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevAddr(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevAddr=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetNwkSKey(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("NwkSKey=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetAppSKey(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG( "AppSKey=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevActMode(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevActMode=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevOpMode(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevOpMode=%s\r\n", buf_out);
-	}	
+	}
 
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevClass(buf_out, 256);
@@ -258,30 +254,30 @@ void node_get_config()
 	{
 		NODE_DEBUG("DevClass=%s\r\n", buf_out);
 		node_class=atoi(buf_out);
-	}	
-	
-	
+	}
+
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevAdvwiseDataRate(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("AdvwiseDataRate=%s\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevAdvwiseFreq(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevAdvwiseFreq=%sHz\r\n", buf_out);
-	}	
-	
+	}
+
 	memset(buf_out, 0, 256);
 	ret=nodeApiGetDevAdvwiseTxPwr(buf_out, 256);
 	if(ret==NODE_API_OK)
 	{
 		NODE_DEBUG("DevAdvwiseTxPwr=%sdBm\r\n", buf_out);
-	}	
-	
+	}
+
 }
 
 /** @brief Read sensor data
@@ -294,25 +290,25 @@ unsigned char node_get_sensor_data (char *data)
 {
 	unsigned char len=0;
 	unsigned char sensor_data[32];
-		
+
 	memset(sensor_data,0x0,sizeof(sensor_data));
 
 	sensor_data[len+2]=0x1;
 	len++; // temperature
 	sensor_data[len+2]=0x3;
-	len++;  // len:3 bytes	
+	len++;  // len:3 bytes
 	sensor_data[len+2]=0x0;
 	len++; //0 is positive, 1 is negative
 	sensor_data[len+2]=(node_sensor_temp_hum>>8)&0xff;
-	len++; 
+	len++;
 	sensor_data[len+2]=node_sensor_temp_hum&0xff;
-	len++; 		
+	len++;
 	sensor_data[len+2]=0x2;
 	len++;  // humidity
-	sensor_data[len+2]=0x2; 
+	sensor_data[len+2]=0x2;
 	len++; // len:2 bytes
 	sensor_data[len+2]=(node_sensor_temp_hum>>24)&0xff;
-	len++; 
+	len++;
 	sensor_data[len+2]=(node_sensor_temp_hum>>16)&0xff;
 	len++;
 
@@ -320,13 +316,13 @@ unsigned char node_get_sensor_data (char *data)
 	sensor_data[0]=len;
 	sensor_data[1]=0xc; //publish
 	memcpy(data, sensor_data,len+2);
-	
-	return len+2;		
-}	
+
+	return len+2;
+}
 
 
 /** @brief An loop to read and send sensor data via LoRa periodically
- *  
+ *
  */
 void node_state_loop()
 {
@@ -340,16 +336,16 @@ void node_state_loop()
 	while(1)
 	{
 		if(nodeApiJoinState()==0)
-		{	
+		{
 			if(join_state==2)
-				NODE_DEBUG("LoRa is not joined.\r\n");	
+				NODE_DEBUG("LoRa is not joined.\r\n");
 
 			#if NODE_DEEP_SLEEP_MODE_SUPPORT
 			nodeApiSetDevSleepRTCWakeup(1);
 			#else
 			Thread::wait(1000);
 			#endif
-			
+
 			join_state=1;
 			continue;
 		}
@@ -358,13 +354,13 @@ void node_state_loop()
 			if(join_state<=1)
 			{
 				node_class=nodeApiDeviceClass();
-				NODE_DEBUG("LoRa Joined.\r\n");		
+				NODE_DEBUG("LoRa Joined.\r\n");
 				node_state=NODE_STATE_LOWPOWER;
 			}
 
-			join_state=2;		
+			join_state=2;
 		}
-	
+
 		switch(node_state)
 		{
 			case NODE_STATE_LOWPOWER:
@@ -382,12 +378,12 @@ void node_state_loop()
 					if(node_state!=NODE_STATE_RX_DONE)
 					{
 						if(count%NODE_ACTIVE_PERIOD_IN_SEC==0)
-						{	
+						{
 							node_state=NODE_STATE_ACTIVE;
 						}
 					}
 					count++;
-					
+
 				}
 				else
 				{
@@ -396,9 +392,9 @@ void node_state_loop()
 					#else
 					Thread::wait(NODE_ACTIVE_PERIOD_IN_SEC*1000);
 					#endif
-					
+
 					if(node_state!=NODE_STATE_RX_DONE)
-						node_state=NODE_STATE_ACTIVE;	
+						node_state=NODE_STATE_ACTIVE;
 				}
 			}
 				break;
@@ -407,9 +403,9 @@ void node_state_loop()
 				int i=0;
 				unsigned char frame_len=0;
 				char frame[64]={};
-				
+
 				frame_len=node_get_sensor_data(frame);
-			
+
 				if(frame_len==0)
 				{
 					node_state=NODE_STATE_LOWPOWER;
@@ -422,9 +418,9 @@ void node_state_loop()
 				{
 					NODE_DEBUG("%02x ",frame[i]);
 				}
-				
+
 				NODE_DEBUG("\n\r");
-				
+
 				nodeApiSendData(NODE_ACTIVE_TX_PORT, frame, frame_len);
 
 				node_state=NODE_STATE_TX;
@@ -457,7 +453,7 @@ void node_state_loop()
 			}
 			default:
 				break;
-				
+
 		}
 	}
 }
@@ -467,11 +463,11 @@ void node_state_loop()
 
 /** @brief Main function
  */
-int main () 
+int main ()
 {
 	/*Create sensor thread*/
 	Thread *p_node_sensor_temp_hum_thread;
-	
+
 	/* Init carrier board, must be first step */
 	nodeApiInitCarrierBoard();
 
@@ -481,9 +477,9 @@ int main ()
 	nodeApiInit();
 
 	p_node_sensor_temp_hum_thread=new Thread(node_sensor_temp_hum_thread);
-	
+
 	node_show_version();
-	
+
 	/*
 	 * Init configuration at beginning
 	 */
@@ -504,11 +500,6 @@ int main ()
 	 */
 	node_state_loop();
 
-	/*Never reach here*/	
+	/*Never reach here*/
 	return 0;
 }
-	
-
-
-
-
