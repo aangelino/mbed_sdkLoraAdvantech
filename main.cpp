@@ -19,7 +19,6 @@
 #define NODE_ACTIVE_TX_PORT 1          ///< Lora Port to send data
 
 
-
 extern Serial debug_serial; ///< Debug serial port
 extern Serial m2_serial;    ///< M2 serial port
 
