@@ -4,10 +4,10 @@
 #include "DebouncedInterrupt.h"
 
 
-DebouncedInterrupt::DebouncedInterrupt(PinName pin)
+DebouncedInterrupt::DebouncedInterrupt(PinName pin, PinMode mode)
 {
     _in = new InterruptIn(pin);
-    _din = new DigitalIn(pin, PullUp);
+    _din = new DigitalIn(pin, mode);
     _timeout = new Timeout;
 }
 
@@ -27,7 +27,7 @@ void DebouncedInterrupt::attach(void (*fptr)(void), const gpio_irq_event trigger
         _trigger = trigger;
         _timeout_expired = true;
         _immediate = immediate;
-        
+
         switch(trigger)
         {
             case IRQ_RISE:

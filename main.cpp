@@ -1,4 +1,5 @@
 /**
+ * Node2
  * @file main.cpp
  *
  * @brief Lora Node SDK Sample
@@ -11,7 +12,12 @@
 
 #include "mbed.h"
 #include "node_api.h"
+#include "pinOutMap_Wise1510.h"
 #include "DebouncedInterrupt.h"
+
+#define DPCONTROL_DEBUG_L0 1
+#define DPCONTROL_DEBUG_L1 0
+#define DPCONTROL_DEBUG_L2 0
 
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
 
@@ -19,11 +25,8 @@
 #define NODE_ACTIVE_PERIOD_IN_SEC 2    ///< Period time to read/send sensor data
 #define NODE_ACTIVE_TX_PORT 1          ///< Lora Port to send data
 
-
-
 extern Serial debug_serial; ///< Debug serial port
 extern Serial m2_serial;    ///< M2 serial port
-
 
 typedef enum
 
@@ -40,13 +43,26 @@ volatile node_state_t node_state = NODE_STATE_INIT;
 static char node_class=1;
 
 static unsigned int  node_sensor_temp_hum=0; ///<Temperature and humidity sensor global
-static unsigned int  g_water_counter=0; ///<var counter global
+volatile unsigned int  g_water_counter=0; ///<var counter global
 
-//InterruptIn gpio0(PA_8);
-//InterruptIn gpio1(PC_8);
-InterruptIn gpio2(PC_7);
+/*Interrupt In*/
+InterruptIn intIn_13(ADC_3);
 
-I2C i2c(PC_1, PC_0); ///<i2C define
+/*Digital In*/
+DigitalIn din_12(ADC_2,PullDown);
+
+/*Digital Out*/
+DigitalOut dout_2(GPIO_2);
+DigitalOut dout_10(ADC_0);
+
+/*I2C*/
+I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
+
+/*PwmOut*/
+PwmOut pwmOut_8(PWM_0);//onda quadra fisicamente in din_12
+
+/*Timer*/
+//Timer timer_0;
 
 /** @brief print message via serial
  *
@@ -73,10 +89,37 @@ int node_printf_to_serial(const char * format, ...)
 	return 0;
 }
 
-void button_push_isr( void )
+void button_push_isr2( void )
 {
-    NODE_DEBUG("\n\r button interrupt \n\r");
+    NODE_DEBUG("\n\r interrupt 2 \n\r");
 }
+
+void button_push_isr12( void )
+{
+    NODE_DEBUG("\n\r interrupt 12 \n\r");
+}
+
+void button_push_isr13_rise( void )
+{
+		g_water_counter++;
+		dout_10.write(intIn_13.read());
+		dout_2.write(intIn_13.read());
+#if DPCONTROL_DEBUG_L1
+		NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    \n\r",g_water_counter);
+    NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    GPIO13(IN(Int))=%d    GPIO2(OUT)=%d  \n\r",g_water_counter,gpio13.read(),gpio2.read());
+		NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> GPIO13(IN(Int))=%d   \n\r",intIn_13.read());
+#endif
+}
+
+void button_push_isr13_fall( void )
+{
+		dout_10.write(intIn_13.read());
+		dout_2.write(intIn_13.read());
+		//NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> GPIO13(IN(Int))=%d   \n\r",intIn_13.read());
+		//NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    GPIO13(IN(Int))=%d    GPIO2(OUT)=%d  \n\r",g_water_counter,gpio13.read(),gpio2.read());
+
+}
+
 
 /** @brief Temperature and humidity sensor read
  *
@@ -140,11 +183,10 @@ static void water_counter_thread(void const *args)
 	{
 	    water_cnt++;
 	    Thread::wait(2000);
-	    g_water_counter=water_cnt;
+	    //g_water_counter=water_cnt;
 	}
 
 }
-
 
 /** @brief node tx procedure done
  *
@@ -155,8 +197,6 @@ int node_tx_done_cb(void)
 	node_state=NODE_STATE_LOWPOWER;
 	return 0;
 }
-
-
 
 /** @brief node got rx data
  *
@@ -169,8 +209,6 @@ int node_rx_done_cb(struct node_api_ev_rx_done *rx_done_data)
 	node_state=NODE_STATE_RX_DONE;
 	return 0;
 }
-
-
 
 /** @brief An example to show version
  *
@@ -187,9 +225,6 @@ void node_show_version()
 		NODE_DEBUG("Version=%s\r\n", buf_out);
 	}
 }
-
-
-
 
 /** @brief An example to set node config
  *
@@ -228,10 +263,6 @@ void node_set_config()
 
 
 }
-
-
-
-
 
 /** @brief An example to get node config
  *
@@ -524,6 +555,12 @@ void node_state_loop()
 
 int main ()
 {
+	int returnVal_gpio2=0;
+	int returnVal_gpio12=0;
+	int returnVal_gpio13=0;
+	int returnVal_duty_cycle_pwm_0=0;
+
+
 	/*Create sensor thread*/
 	Thread *p_node_sensor_temp_hum_thread, *p_node_water_counter_thread;
 
@@ -540,9 +577,7 @@ int main ()
 
 	node_show_version();
 
-	/*
-	 * Init configuration at beginning
-	 */
+	/*Init configuration at beginning*/
 	node_set_config();
 
 	/* Apply to module */
@@ -555,14 +590,30 @@ int main ()
 
 	Thread::wait(1000);
 
-	/*debounce code*/
-	DebouncedInterrupt user_interrupt(PC_7);
-	user_interrupt.attach(button_push_isr, IRQ_RISE, 100, true);
+	/*Gpio Settings*/
+	intIn_13.mode(PullDown);
+	intIn_13.rise(&button_push_isr13_rise);
+	intIn_13.fall(&button_push_isr13_fall);
 
-	/*
-	 *  Node state loop
-	 */
+	/*Pwm Settings*/
+	pwmOut_8.period_ms(1);      // 4 second period
+	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
+
+
+	/*Debounce Settings*/
+	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);//(PC_7);
+	//user_interrupt2.attach(button_push_isr2, IRQ_RISE, 10, true);
+	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);//(PA_6);
+	//user_interrupt12.attach(button_push_isr12, IRQ_RISE, 10, true);
+
+	/*Node state loop*/
 	node_state_loop();
+
+#if DPCONTROL_DEBUG_L0
+	NODE_DEBUG("---------new run--------->\r\n");
+	NODE_DEBUG("SystemCoreClock=%d\r\n",SystemCoreClock);
+	NODE_DEBUG("duty_cycle_pwm=%f\r\n",pwmOut_8.read());
+#endif
 
 	/*Never reach here*/
 	return 0;

@@ -1,4 +1,4 @@
- 
+
 #ifndef DEBOUNCED_INTERRUPT_H
 #define DEBOUNCED_INTERRUPT_H
 
@@ -21,12 +21,12 @@ typedef enum {
  * #include "DebouncedInterrupt.h"
  *
  * DebouncedInterrupt up_button(USER_BUTTON);
- * 
+ *
  * void onUp()
  * {
  *    // Do Something
  * }
- * 
+ *
  * int main()
  * {
  *     // Will immediatly call function and ignore other interrupts until timeout
@@ -50,27 +50,27 @@ private:
     DigitalIn *_din;
     gpio_irq_event _trigger;
     Timeout *_timeout;
-    
+
     // Diagnostics
     volatile unsigned int _bounce_count;
     volatile unsigned int _last_bounce_count;
-    
+
     void _onInterrupt(void);
     void _onCallback(void);
 public:
-    DebouncedInterrupt(PinName pin);
+    DebouncedInterrupt(PinName pin, PinMode mode );
     ~DebouncedInterrupt();
-    
+
     // Start monitoring the interupt and attach a callback
     void attach(void (*fptr)(void), const gpio_irq_event trigger, const uint32_t debounce_ms=10, bool immediate=false);
-    
+
     template<typename T, typename M>
     void attach(T *obj, M method, const gpio_irq_event trigger, const uint32_t debounce_ms=10, bool immediate=false) {
         _callback = callback(obj, method);
         _last_bounce_count = _bounce_count = 0;
         _debounce_us = 1000*debounce_ms;
         _trigger = trigger;
-        
+
         switch(trigger)
         {
             case IRQ_RISE:
@@ -84,13 +84,13 @@ public:
                 break;
         }
     }
-   
+
     // Stop monitoring the interrupt
     void reset();
-    
-    
+
+
     /*
-    * Get number of bounces 
+    * Get number of bounces
     * @return: bounce count
     */
     unsigned int get_bounce();
