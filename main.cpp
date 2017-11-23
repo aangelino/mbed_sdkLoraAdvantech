@@ -1,5 +1,5 @@
 /**
- * Node2
+ * Node2 test
  * @file main.cpp
  *
  * @brief Lora Node SDK Sample
@@ -9,7 +9,7 @@
  * @author AdvanWISE
 */
 
-
+#include "azz.h"
 #include "mbed.h"
 #include "node_api.h"
 #include "pinOutMap_Wise1510.h"
