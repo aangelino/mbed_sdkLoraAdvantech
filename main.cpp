@@ -9,7 +9,6 @@
  * @author AdvanWISE
 */
 
-#include "azz.h"
 #include "mbed.h"
 #include "node_api.h"
 #include "pinOutMap_Wise1510.h"
