@@ -16,8 +16,8 @@
 
 /*Debug Settings*/
 #define DPCONTROL_DEBUG_SW_COUNTER 0
-#define DPCONTROL_DEBUG_OSCILLOSCOPE 1
-#define DPCONTROL_DEBUG_PRINT_INT 1
+#define DPCONTROL_DEBUG_OSCILLOSCOPE 0
+#define DPCONTROL_DEBUG_PRINT_INT 0
 #define DPCONTROL_DEBUG_PRINT_RX_DONE 0
 #define DPCONTROL_DEBUG_PRINT_TX_DONE 0
 #define DPCONTROL_DEBUG_L2 0
@@ -120,6 +120,10 @@ void button_push_isr13_rise( void )
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
 void button_push_isr13_fall( void )
 {
+#if DPCONTROL_DEBUG_PRINT_INT
+		NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> g_water_counter=%d    \n\r",g_water_counter);
+#endif
+
 		dout_2.write(intIn_13.read());
 }
 #endif
