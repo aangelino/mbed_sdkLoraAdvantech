@@ -15,12 +15,12 @@
 #include "DebouncedInterrupt.h"
 
 /*Debug Settings*/
-#define DPCONTROL_DEBUG_SW_COUNTER 0
+#define DPCONTROL_DEBUG_SW_COUNTER 1
 #define DPCONTROL_DEBUG_OSCILLOSCOPE 0
-#define DPCONTROL_DEBUG_PRINT_INT 0
+#define DPCONTROL_DEBUG_PRINT_INT 1
 #define DPCONTROL_DEBUG_PRINT_RX_DONE 0
 #define DPCONTROL_DEBUG_PRINT_TX_DONE 0
-#define DPCONTROL_DEBUG_L2 0
+#define DPCONTROL_DEBUG_PRINT_START 1
 
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
 
@@ -58,7 +58,6 @@ DigitalIn din_12(ADC_2,PullDown);
 
 /*Digital Out*/
 DigitalOut dout_2(GPIO_2);
-//DigitalOut dout_10(ADC_0);
 
 /*I2C*/
 I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
@@ -67,7 +66,7 @@ I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
 PwmOut pwmOut_8(PWM_0);//onda quadra fisicamente in din_12
 
 /*Timer*/
-//Timer timer_0;
+Timer timer_0;
 
 /** @brief print message via serial
  *
@@ -104,10 +103,11 @@ void button_push_isr12( void )
     NODE_DEBUG("\n\r interrupt 12 \n\r");
 }
 
-void button_push_isr13_rise( void )
+void callback_isr13_rise( void )
 {
 		g_water_counter++;
 
+/*Set Out to follow in (debug only)*/
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
 		dout_2.write(intIn_13.read());
 #endif
@@ -117,16 +117,20 @@ void button_push_isr13_rise( void )
 #endif
 }
 
-#if DPCONTROL_DEBUG_OSCILLOSCOPE
-void button_push_isr13_fall( void )
+
+void callback_isr13_fall( void )
 {
-#if DPCONTROL_DEBUG_PRINT_INT
+/*Set OUT to follow IN (debug only)*/
+#if DPCONTROL_DEBUG_OSCILLOSCOPE
+
+	#if DPCONTROL_DEBUG_PRINT_INT
 		NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> g_water_counter=%d    \n\r",g_water_counter);
-#endif
+	#endif
 
 		dout_2.write(intIn_13.read());
-}
 #endif
+}
+
 
 /** @brief Temperature and humidity sensor read
  *
@@ -185,6 +189,23 @@ static void node_sensor_temp_hum_thread(void const *args)
 #if DPCONTROL_DEBUG_SW_COUNTER
 static void water_counter_thread(void const *args)
 {
+	NODE_DEBUG("\r\n water_counter_thread");
+	if(g_water_counter<=0)
+	{
+		NODE_DEBUG("\r\n 1.water_counter_thread");
+		timer_0.reset();
+		timer_0.start();
+	}
+	else
+	{
+		NODE_DEBUG("\r\n 2.water_counter_thread");
+		if(g_water_counter==300)
+		{
+			NODE_DEBUG("\r\n g_water_counter:%d     time:%d\r\n",g_water_counter, timer_0.read_ms());
+		}
+	}
+
+	/*
     	int water_cnt=0;
 
     	while(1)
@@ -192,7 +213,7 @@ static void water_counter_thread(void const *args)
 	    water_cnt++;
 	    Thread::wait(2000);
 	    g_water_counter=water_cnt;
-	}
+	}*/
 
 }
 #endif
@@ -610,31 +631,32 @@ int main ()
 
 	/*Gpio Settings*/
 	intIn_13.mode(PullDown);
-	intIn_13.rise(&button_push_isr13_rise);
+	intIn_13.rise(&callback_isr13_rise);
 
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
-	intIn_13.fall(&button_push_isr13_fall);
+	intIn_13.fall(&callback_isr13_fall);
 #endif
 
 	/*Pwm Settings*/
-	pwmOut_8.period_ms(1);      // 4 second period
+	pwmOut_8.period_ms(100);      // Periof(Frequency)1 ms(1kHz)/100ms(10Hz)
 	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
 
 
 	/*Debounce Settings*/
-	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);//(PC_7);
+	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);
 	//user_interrupt2.attach(button_push_isr2, IRQ_RISE, 10, true);
-	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);//(PA_6);
+	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);
 	//user_interrupt12.attach(button_push_isr12, IRQ_RISE, 10, true);
+
+	#if DPCONTROL_DEBUG_PRINT_START
+		NODE_DEBUG("SystemCoreClock=%d\r\n",SystemCoreClock);
+		NODE_DEBUG("duty_cycle_pwm=%f\r\n",pwmOut_8.read());
+		NODE_DEBUG("frequency_pwm=%f\r\n",1/0.1);
+		NODE_DEBUG("---------Start Node Loop--------->\r\n");
+	#endif
 
 	/*Node state loop*/
 	node_state_loop();
-
-#if DPCONTROL_DEBUG_L0
-	NODE_DEBUG("---------new run--------->\r\n");
-	NODE_DEBUG("SystemCoreClock=%d\r\n",SystemCoreClock);
-	NODE_DEBUG("duty_cycle_pwm=%f\r\n",pwmOut_8.read());
-#endif
 
 	/*Never reach here*/
 	return 0;
