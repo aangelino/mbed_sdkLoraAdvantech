@@ -1,4 +1,5 @@
 /**
+ * Node1
  * @file main.cpp
  *
  * @brief Lora Node SDK Sample
@@ -8,17 +9,24 @@
  * @author AdvanWISE
 */
 
-
 #include "mbed.h"
 #include "node_api.h"
+#include "pinOutMap_Wise1510.h"
+#include "DebouncedInterrupt.h"
+
+/*Debug Settings*/
+#define DPCONTROL_DEBUG_SW_COUNTER 0
+#define DPCONTROL_DEBUG_OSCILLOSCOPE 0
+#define DPCONTROL_DEBUG_PRINT_INT 1
+#define DPCONTROL_DEBUG_PRINT_RX_DONE 0
+#define DPCONTROL_DEBUG_PRINT_TX_DONE 0
+#define DPCONTROL_DEBUG_PRINT_START 1
 
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
 
 #define NODE_DEEP_SLEEP_MODE_SUPPORT 0  ///< Flag to Enable/Disable deep sleep mode
 #define NODE_ACTIVE_PERIOD_IN_SEC 2    ///< Period time to read/send sensor data
 #define NODE_ACTIVE_TX_PORT 1          ///< Lora Port to send data
-
-
 
 extern Serial debug_serial; ///< Debug serial port
 extern Serial m2_serial;    ///< M2 serial port
@@ -38,10 +46,27 @@ volatile node_state_t node_state = NODE_STATE_INIT;
 static char node_class=1;
 
 static unsigned int  node_sensor_temp_hum=0; ///<Temperature and humidity sensor global
-static unsigned int  g_water_counter=0; ///<var counter global
+volatile unsigned int  g_water_counter=0; ///<var counter global
 
-I2C i2c(PC_1, PC_0); ///<i2C define
-InterruptIn gpio2(PC_7);
+/*Interrupt In*/
+InterruptIn intIn_13(ADC_3);
+
+#if DPCONTROL_DEBUG_OSCILLOSCOPE
+/*Digital In*/
+DigitalIn din_12(ADC_2,PullDown);
+#endif
+
+/*Digital Out*/
+DigitalOut dout_2(GPIO_2);
+
+/*I2C*/
+I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
+
+/*PwmOut*/
+PwmOut pwmOut_8(PWM_0);//onda quadra fisicamente in din_12
+
+/*Timer*/
+Timer timer_0;
 
 /** @brief print message via serial
  *
@@ -68,9 +93,42 @@ int node_printf_to_serial(const char * format, ...)
 	return 0;
 }
 
-void button_push_isr( void )
+void button_push_isr2( void )
 {
-    NODE_DEBUG("\n\r button interrupt \n\r");
+    NODE_DEBUG("\n\r interrupt 2 \n\r");
+}
+
+void button_push_isr12( void )
+{
+    NODE_DEBUG("\n\r interrupt 12 \n\r");
+}
+
+void callback_isr13_rise( void )
+{
+		g_water_counter++;
+
+/*Set Out to follow in (debug only)*/
+#if DPCONTROL_DEBUG_OSCILLOSCOPE
+		dout_2.write(intIn_13.read());
+#endif
+
+#if DPCONTROL_DEBUG_PRINT_INT
+		NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    \n\r",g_water_counter);
+#endif
+}
+
+
+void callback_isr13_fall( void )
+{
+/*Set OUT to follow IN (debug only)*/
+#if DPCONTROL_DEBUG_OSCILLOSCOPE
+
+	#if DPCONTROL_DEBUG_PRINT_INT
+		NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> g_water_counter=%d    \n\r",g_water_counter);
+	#endif
+
+		dout_2.write(intIn_13.read());
+#endif
 }
 
 
@@ -128,51 +186,45 @@ static void node_sensor_temp_hum_thread(void const *args)
 /** @brief my counter thread
  *
  */
+#if DPCONTROL_DEBUG_SW_COUNTER
 static void water_counter_thread(void const *args)
 {
-    	int water_cnt=0;
+   	int water_cnt=0;
 
-    	while(1)
-	{
-	    water_cnt++;
-	    Thread::wait(2000);
-
-				g_water_counter=water_cnt;
-
-	}
-
+  	while(1)
+		{
+    	water_cnt++;
+    	Thread::wait(2000);
+    	g_water_counter=water_cnt;
+		}
 }
-
+#endif
 
 /** @brief node tx procedure done
  *
  */
 int node_tx_done_cb(void)
 {
-	NODE_DEBUG("1.node_state=NODE_STATE_LOWPOWER\r\n");
+#if DPCONTROL_DEBUG_PRINT_TX_DONE
+	NODE_DEBUG("into node_tx_done_cb -->1.node_state=NODE_STATE_LOWPOWER\r\n");
+#endif
 	node_state=NODE_STATE_LOWPOWER;
 	return 0;
 }
 
-
-
-/** @brief node got rx data
- *
- */
+/** @brief node got rx data */
 int node_rx_done_cb(struct node_api_ev_rx_done *rx_done_data)
 {
+#if DPCONTROL_DEBUG_PRINT_RX_DONE
 	NODE_DEBUG("into node_rx_done_cb\r\n");
+#endif
 	memset(&node_rx_done_data,0,sizeof(struct node_api_ev_rx_done));
 	memcpy(&node_rx_done_data,rx_done_data,sizeof(struct node_api_ev_rx_done));
 	node_state=NODE_STATE_RX_DONE;
 	return 0;
 }
 
-
-
-/** @brief An example to show version
- *
- */
+/** @brief An example to show version */
 void node_show_version()
 {
 	char buf_out[256];
@@ -186,12 +238,7 @@ void node_show_version()
 	}
 }
 
-
-
-
-/** @brief An example to set node config
- *
- */
+/** @brief An example to set node config */
 void node_set_config()
 {
 	char deveui[32]={};
@@ -226,13 +273,7 @@ void node_set_config()
 
 }
 
-
-
-
-
-/** @brief An example to get node config
- *
- */
+/** @brief An example to get node config */
 void node_get_config()
 {
 	char buf_out[256];
@@ -377,7 +418,7 @@ void node_state_loop()
 	nodeApiSetTxDoneCb(node_tx_done_cb);
 	nodeApiSetRxDoneCb(node_rx_done_cb);
 
-	//NODE_DEBUG("5.node_state=NODE_STATE_LOWPOWER\r\n");
+	NODE_DEBUG("5.node_state=NODE_STATE_LOWPOWER\r\n");
 	node_state=NODE_STATE_LOWPOWER;
 
 	while(1)
@@ -402,7 +443,7 @@ void node_state_loop()
 			{
 				node_class=nodeApiDeviceClass();
 				NODE_DEBUG("LoRa Joined.\r\n");
-				//NODE_DEBUG("2.node_state=NODE_STATE_LOWPOWER\r\n");
+				NODE_DEBUG("2.node_state=NODE_STATE_LOWPOWER\r\n");
 				node_state=NODE_STATE_LOWPOWER;
 			}
 
@@ -429,6 +470,7 @@ void node_state_loop()
 						//NODE_DEBUG("count_NSLP = % d\n\r ",count_NSLP);
 						if(count_NSLP%NODE_ACTIVE_PERIOD_IN_SEC==0)
 						{
+							NODE_DEBUG("NODE_STATE_ACTIVE\n\r ");
 							node_state=NODE_STATE_ACTIVE;
 						}
 					}
@@ -481,7 +523,7 @@ void node_state_loop()
 			}
 				break;
 			case NODE_STATE_TX:
-				//NODE_DEBUG("NODE_STATE_TX\n\r ");
+				//NODE_DEBUG("NODE_STATE_TX");
 				break;
 			case NODE_STATE_RX_DONE:
 			NODE_DEBUG("NODE_STATE_RX_DONE\n\r ");
@@ -519,8 +561,7 @@ void node_state_loop()
 
 
 
-/** @brief Main function
- */
+/*@brief Main function*/
 int main ()
 {
 	/*Create sensor thread*/
@@ -535,13 +576,15 @@ int main ()
 	nodeApiInit();
 
 	p_node_sensor_temp_hum_thread=new Thread(node_sensor_temp_hum_thread);
+
+/*Debug Thread (Software Counter)*/
+#if DPCONTROL_DEBUG_SW_COUNTER
 	p_node_water_counter_thread=new Thread(water_counter_thread);
+#endif
 
 	node_show_version();
 
-	/*
-	 * Init configuration at beginning
-	 */
+	/*Init configuration at beginning*/
 	node_set_config();
 
 	/* Apply to module */
@@ -554,13 +597,33 @@ int main ()
 
 	Thread::wait(1000);
 
-	/*debounce code*/
-	//DebouncedInterrupt user_interrupt(PC_7);
-	//user_interrupt.attach(button_push_isr, IRQ_RISE, 100, true);
+	/*Gpio Settings*/
+	intIn_13.mode(PullDown);
+	intIn_13.rise(&callback_isr13_rise);
 
-	/*
-	 *  Node state loop
-	 */
+#if DPCONTROL_DEBUG_OSCILLOSCOPE
+	intIn_13.fall(&callback_isr13_fall);
+#endif
+
+	/*Pwm Settings*/
+	pwmOut_8.period_ms(100);      // Periof(Frequency)1 ms(1kHz)/100ms(10Hz)
+	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
+
+
+	/*Debounce Settings*/
+	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);
+	//user_interrupt2.attach(button_push_isr2, IRQ_RISE, 10, true);
+	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);
+	//user_interrupt12.attach(button_push_isr12, IRQ_RISE, 10, true);
+
+	#if DPCONTROL_DEBUG_PRINT_START
+		NODE_DEBUG("SystemCoreClock=%d\r\n",SystemCoreClock);
+		NODE_DEBUG("duty_cycle_pwm=%f\r\n",pwmOut_8.read());
+		NODE_DEBUG("frequency_pwm=%f\r\n",1/0.1);
+		NODE_DEBUG("---------Start Node Loop--------->\r\n");
+	#endif
+
+	/*Node state loop*/
 	node_state_loop();
 
 	/*Never reach here*/
