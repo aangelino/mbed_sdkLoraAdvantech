@@ -15,7 +15,7 @@
 #include "DebouncedInterrupt.h"
 
 /*Debug Settings*/
-#define DPCONTROL_DEBUG_SW_COUNTER 1
+#define DPCONTROL_DEBUG_SW_COUNTER 0
 #define DPCONTROL_DEBUG_OSCILLOSCOPE 0
 #define DPCONTROL_DEBUG_PRINT_INT 1
 #define DPCONTROL_DEBUG_PRINT_RX_DONE 0
@@ -189,32 +189,14 @@ static void node_sensor_temp_hum_thread(void const *args)
 #if DPCONTROL_DEBUG_SW_COUNTER
 static void water_counter_thread(void const *args)
 {
-	NODE_DEBUG("\r\n water_counter_thread");
-	if(g_water_counter<=0)
-	{
-		NODE_DEBUG("\r\n 1.water_counter_thread");
-		timer_0.reset();
-		timer_0.start();
-	}
-	else
-	{
-		NODE_DEBUG("\r\n 2.water_counter_thread");
-		if(g_water_counter==300)
+   	int water_cnt=0;
+
+  	while(1)
 		{
-			NODE_DEBUG("\r\n g_water_counter:%d     time:%d\r\n",g_water_counter, timer_0.read_ms());
+    	water_cnt++;
+    	Thread::wait(2000);
+    	g_water_counter=water_cnt;
 		}
-	}
-
-	/*
-    	int water_cnt=0;
-
-    	while(1)
-	{
-	    water_cnt++;
-	    Thread::wait(2000);
-	    g_water_counter=water_cnt;
-	}*/
-
 }
 #endif
 
@@ -230,9 +212,7 @@ int node_tx_done_cb(void)
 	return 0;
 }
 
-/** @brief node got rx data
- *
- */
+/** @brief node got rx data */
 int node_rx_done_cb(struct node_api_ev_rx_done *rx_done_data)
 {
 #if DPCONTROL_DEBUG_PRINT_RX_DONE
@@ -244,9 +224,7 @@ int node_rx_done_cb(struct node_api_ev_rx_done *rx_done_data)
 	return 0;
 }
 
-/** @brief An example to show version
- *
- */
+/** @brief An example to show version */
 void node_show_version()
 {
 	char buf_out[256];
@@ -260,9 +238,7 @@ void node_show_version()
 	}
 }
 
-/** @brief An example to set node config
- *
- */
+/** @brief An example to set node config */
 void node_set_config()
 {
 	char deveui[32]={};
@@ -288,7 +264,7 @@ void node_set_config()
 	nodeApiSetDevActMode("2");														  //Set Activation mode(1:OTAA| 2:ABP; Default:2)
 	nodeApiSetDevOpMode("1");																//Set Device Operating Mode (1:Advanwise| 2:LoRaWan | 3:MACless; Default:1)
 	nodeApiSetDevClass("3");																//Set Device Class (1:classA| 2:classB| 3:classC; Default:1) N.B class B not implemented yet
-  //nodeApiSetDevAdvwiseDataRate("4");//node 1
+  	//nodeApiSetDevAdvwiseDataRate("4");//node 1
 	nodeApiSetDevAdvwiseDataRate("3");//node 2											//Set Advanwise mode Date Rate
 
 	//nodeApiSetDevAdvwiseFreq("868500000");//Node 1
@@ -298,9 +274,7 @@ void node_set_config()
 
 }
 
-/** @brief An example to get node config
- *
- */
+/** @brief An example to get node config */
 void node_get_config()
 {
 	char buf_out[256];
@@ -587,16 +561,11 @@ void node_state_loop()
 
 
 
+
+/*@brief Main function*/
 int main ()
 {
-	int returnVal_gpio2=0;
-	int returnVal_gpio12=0;
-	int returnVal_gpio13=0;
-	int returnVal_duty_cycle_pwm_0=0;
-
-
 	/*Create sensor thread*/
-
 	Thread *p_node_sensor_temp_hum_thread, *p_node_water_counter_thread;
 
 	/* Init carrier board, must be first step */
