@@ -14,12 +14,19 @@
 #include "pinOutMap_Wise1510.h"
 #include "DebouncedInterrupt.h"
 
-/*Debug Settings*/
-#define DPCONTROL_DEBUG_SW_COUNTER 0
+/***************DEBUG SETTINGS************/
+/*GENERATE PWM to debug counter on rising edge*/
+#define DPCONTROL_DEBUG_PWM 0
+/*set digital out to follow digital in (only debug)*/
 #define DPCONTROL_DEBUG_OSCILLOSCOPE 0
-#define DPCONTROL_DEBUG_PRINT_INT 1
+/*Printf on rising and falling interrupt*/
+#define DPCONTROL_DEBUG_PRINT_INT_RISE 0
+#define DPCONTROL_DEBUG_PRINT_INT_FALL 0
+
+/*Printf Rx/Tx done*/
 #define DPCONTROL_DEBUG_PRINT_RX_DONE 0
 #define DPCONTROL_DEBUG_PRINT_TX_DONE 0
+/*Print Info*/
 #define DPCONTROL_DEBUG_PRINT_START 1
 
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
@@ -65,8 +72,10 @@ I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
 /*PwmOut*/
 PwmOut pwmOut_8(PWM_0);//onda quadra fisicamente in din_12
 
+//#if DPCONTROL_DEBUG_TIMER
 /*Timer*/
-Timer timer_0;
+Timer timer_water_thread;
+//#endif
 
 /** @brief print message via serial
  *
@@ -105,15 +114,15 @@ void button_push_isr12( void )
 
 void callback_isr13_rise( void )
 {
-		g_water_counter++;
+	g_water_counter++;
 
 /*Set Out to follow in (debug only)*/
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
-		dout_2.write(intIn_13.read());
+	dout_2.write(intIn_13.read());
 #endif
 
-#if DPCONTROL_DEBUG_PRINT_INT
-		NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    \n\r",g_water_counter);
+#if DPCONTROL_DEBUG_PRINT_INT_RISE
+	NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    \n\r",g_water_counter);
 #endif
 }
 
@@ -123,7 +132,7 @@ void callback_isr13_fall( void )
 /*Set OUT to follow IN (debug only)*/
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
 
-	#if DPCONTROL_DEBUG_PRINT_INT
+	#if DPCONTROL_DEBUG_PRINT_INT_FALL
 		NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> g_water_counter=%d    \n\r",g_water_counter);
 	#endif
 
@@ -167,38 +176,14 @@ static unsigned int hdc1510_sensor(void)
  */
 static void node_sensor_temp_hum_thread(void const *args)
 {
-    	int cnt=0;
-
-    	while(1)
+  while(1)
 	{
-	    cnt++;
-	    Thread::wait(10);
-	    if(cnt==100)
-	    {
-	       cnt=0;
-	     	node_sensor_temp_hum=(unsigned int )hdc1510_sensor();
-
-	     }
+			Thread::wait(10000);
+	    node_sensor_temp_hum=(unsigned int )hdc1510_sensor();
 	}
 
 }
 
-/** @brief my counter thread
- *
- */
-#if DPCONTROL_DEBUG_SW_COUNTER
-static void water_counter_thread(void const *args)
-{
-   	int water_cnt=0;
-
-  	while(1)
-		{
-    	water_cnt++;
-    	Thread::wait(2000);
-    	g_water_counter=water_cnt;
-		}
-}
-#endif
 
 /** @brief node tx procedure done
  *
@@ -419,7 +404,7 @@ void node_state_loop()
 	nodeApiSetTxDoneCb(node_tx_done_cb);
 	nodeApiSetRxDoneCb(node_rx_done_cb);
 
-	NODE_DEBUG("5.node_state=NODE_STATE_LOWPOWER\r\n");
+	//NODE_DEBUG("5.node_state=NODE_STATE_LOWPOWER\r\n");
 	node_state=NODE_STATE_LOWPOWER;
 
 	while(1)
@@ -443,8 +428,8 @@ void node_state_loop()
 			if(join_state<=1)
 			{
 				node_class=nodeApiDeviceClass();
-				NODE_DEBUG("LoRa Joined.\r\n");
-				NODE_DEBUG("2.node_state=NODE_STATE_LOWPOWER\r\n");
+				NODE_DEBUG("LoRa Joined.\r\n\r\n");
+				//NODE_DEBUG("2.node_state=NODE_STATE_LOWPOWER\r\n");
 				node_state=NODE_STATE_LOWPOWER;
 			}
 
@@ -566,7 +551,7 @@ void node_state_loop()
 int main ()
 {
 	/*Create sensor thread*/
-	Thread *p_node_sensor_temp_hum_thread, *p_node_water_counter_thread;
+	Thread *p_node_sensor_temp_hum_thread;
 
 	/* Init carrier board, must be first step */
 	nodeApiInitCarrierBoard();
@@ -577,11 +562,6 @@ int main ()
 	nodeApiInit();
 
 	p_node_sensor_temp_hum_thread=new Thread(node_sensor_temp_hum_thread);
-
-/*Debug Thread (Software Counter)*/
-#if DPCONTROL_DEBUG_SW_COUNTER
-	p_node_water_counter_thread=new Thread(water_counter_thread);
-#endif
 
 	node_show_version();
 
@@ -606,10 +586,11 @@ int main ()
 	intIn_13.fall(&callback_isr13_fall);
 #endif
 
+#if DPCONTROL_DEBUG_PWM
 	/*Pwm Settings*/
-	pwmOut_8.period_ms(100);      // Periof(Frequency)1 ms(1kHz)/100ms(10Hz)
+	pwmOut_8.period_ms(1);      		// Periof(Frequency)  1ms(1kHz)
 	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
-
+#endif
 
 	/*Debounce Settings*/
 	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);
@@ -617,12 +598,10 @@ int main ()
 	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);
 	//user_interrupt12.attach(button_push_isr12, IRQ_RISE, 10, true);
 
-	#if DPCONTROL_DEBUG_PRINT_START
-		NODE_DEBUG("SystemCoreClock=%d\r\n",SystemCoreClock);
-		NODE_DEBUG("duty_cycle_pwm=%f\r\n",pwmOut_8.read());
-		NODE_DEBUG("frequency_pwm=%f\r\n",1/0.1);
-		NODE_DEBUG("---------Start Node Loop--------->\r\n");
-	#endif
+#if DPCONTROL_DEBUG_PRINT_START
+		NODE_DEBUG("\n\rSystemCoreClock=%d\r\n",SystemCoreClock);
+		NODE_DEBUG("\n\rStart Node Loop\r\n");
+#endif
 
 	/*Node state loop*/
 	node_state_loop();
