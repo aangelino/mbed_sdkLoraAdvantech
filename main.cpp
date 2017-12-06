@@ -32,7 +32,7 @@
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
 
 #define NODE_DEEP_SLEEP_MODE_SUPPORT 0  ///< Flag to Enable/Disable deep sleep mode
-#define NODE_ACTIVE_PERIOD_IN_SEC 2    ///< Period time to read/send sensor data
+#define NODE_ACTIVE_PERIOD_IN_SEC 5    ///< Period time to read/send sensor data
 #define NODE_ACTIVE_TX_PORT 1          ///< Lora Port to send data
 
 extern Serial debug_serial; ///< Debug serial port
@@ -102,16 +102,6 @@ int node_printf_to_serial(const char * format, ...)
 	return 0;
 }
 
-void button_push_isr2( void )
-{
-    NODE_DEBUG("\n\r interrupt 2 \n\r");
-}
-
-void button_push_isr12( void )
-{
-    NODE_DEBUG("\n\r interrupt 12 \n\r");
-}
-
 void callback_isr13_rise( void )
 {
 	g_water_counter++;
@@ -126,7 +116,6 @@ void callback_isr13_rise( void )
 #endif
 }
 
-
 void callback_isr13_fall( void )
 {
 /*Set OUT to follow IN (debug only)*/
@@ -139,7 +128,6 @@ void callback_isr13_fall( void )
 		dout_2.write(intIn_13.read());
 #endif
 }
-
 
 /** @brief Temperature and humidity sensor read
  *
@@ -579,6 +567,10 @@ int main ()
 	/*Gpio Settings*/
 	intIn_13.mode(PullDown);
 	intIn_13.rise(&callback_isr13_rise);
+
+	//intIn_7.mode(PullDown);
+	//intIn_7.rise(&callback_isr7);
+
 
 #if DPCONTROL_DEBUG_OSCILLOSCOPE
 	intIn_13.fall(&callback_isr13_fall);
