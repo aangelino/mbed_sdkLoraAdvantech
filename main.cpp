@@ -14,6 +14,8 @@
 #include "pinOutMap_Wise1510.h"
 #include "DebouncedInterrupt.h"
 
+#include "stm32l4xx_hal.h"
+
 /***************DEBUG SETTINGS************/
 /*GENERATE PWM to debug counter on rising edge*/
 #define DPCONTROL_DEBUG_PWM 0
@@ -54,6 +56,10 @@ static char node_class=1;
 
 static unsigned int  node_sensor_temp_hum=0; ///<Temperature and humidity sensor global
 volatile unsigned int  g_water_counter=0; ///<var counter global
+
+static void MX_GPIO_Init(void);
+TIM_HandleTypeDef htim1;
+long count=0;
 
 /*Interrupt In*/
 InterruptIn intIn_13(ADC_3);
@@ -530,7 +536,59 @@ void node_state_loop()
 	}
 }
 
+/* TIM1 init function */
+static void MX_TIM1_Init(void)
+{
 
+  TIM_SlaveConfigTypeDef sSlaveConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 10000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  //htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+		printf("\r\n _Error_Handler\r\n");
+		while(1){};
+    //_Error_Handler(__FILE__, __LINE__);
+  }
+
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_TI1FP1;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+  sSlaveConfig.TriggerFilter = 50;
+  if (HAL_TIM_SlaveConfigSynchronization(&htim1, &sSlaveConfig) != HAL_OK)
+  {
+		printf("\r\n _Error_Handler\r\n");
+		while(1){};
+    //_Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+		printf("\r\n _Error_Handler\r\n");
+		while(1){};
+    //_Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/** Pinout Configuration
+*/
+static void MX_GPIO_Init(void)
+{
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+}
 
 
 /*@brief Main function*/
@@ -582,6 +640,14 @@ int main ()
 	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
 #endif
 
+NODE_DEBUG("\n\rHAL_Init\r\n");
+HAL_Init();
+NODE_DEBUG("\n\rMX_GPIO_Init\r\n");
+MX_GPIO_Init();
+NODE_DEBUG("\n\rMX_TIM1_Init\r\n");
+MX_TIM1_Init();
+NODE_DEBUG("\n\rHAL_TIM_Base_Start\r\n");
+HAL_TIM_Base_Start(&htim1);    //Start TIM1 without interrupt
 	/*Debounce Settings*/
 	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);
 	//user_interrupt2.attach(button_push_isr2, IRQ_RISE, 10, true);
@@ -594,8 +660,19 @@ int main ()
 #endif
 
 	/*Node state loop*/
-	node_state_loop();
-
+	//node_state_loop();
+count = __HAL_TIM_GetCounter(&htim1);
+printf("\n\r count=%d\n\r",count);
+printf("\n\r Reset Counter \n\r");
+/* Reset the Counter Register value */
+  TIM1->CNT = 0;
+printf("\n\r count=%d\n\r",count);
+while(1)
+{
+	 count = __HAL_TIM_GetCounter(&htim1);    //read TIM2 counter value
+	 printf("\n\r count=%d\n\r",count);
+	 Thread::wait(1000);
+}
 	/*Never reach here*/
 	return 0;
 }
