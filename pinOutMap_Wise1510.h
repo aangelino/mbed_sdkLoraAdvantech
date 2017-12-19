@@ -68,7 +68,7 @@
 //W_DISABLE# 			PC_2 		//Pin56
 //GND											//Pin57
 #define I2C0_DATA PC_1		//Pin58
-#define ADC_4 		PA_0		//Pin59 GPIO_14
+//#define ADC_4 	PA_0		//Pin59 GPIO_14 
 #define I2C0_CLK 	PC_0		//Pin60
 //ADC5 						N.C. 		//Pin61 GPIO_15
 //SPI_MOSI 				PB_15 	//Pin62

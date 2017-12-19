@@ -34,7 +34,7 @@
 #define NODE_DEBUG(x,args...) node_printf_to_serial(x,##args)
 
 #define NODE_DEEP_SLEEP_MODE_SUPPORT 0  ///< Flag to Enable/Disable deep sleep mode
-#define NODE_ACTIVE_PERIOD_IN_SEC 5    ///< Period time to read/send sensor data
+#define NODE_ACTIVE_PERIOD_IN_SEC 2    ///< Period time to read/send sensor data
 #define NODE_ACTIVE_TX_PORT 1          ///< Lora Port to send data
 
 extern Serial debug_serial; ///< Debug serial port
@@ -58,30 +58,16 @@ static unsigned int  node_sensor_temp_hum=0; ///<Temperature and humidity sensor
 volatile unsigned int  g_water_counter=0; ///<var counter global
 
 static void MX_GPIO_Init(void);
-TIM_HandleTypeDef htim1;
-long count=0;
+static void MX_TIM15_Init(void);
+static void MX_TIM15_Reset(void);
 
-/*Interrupt In*/
-InterruptIn intIn_13(ADC_3);
-
-#if DPCONTROL_DEBUG_OSCILLOSCOPE
-/*Digital In*/
-DigitalIn din_12(ADC_2,PullDown);
-#endif
-
-/*Digital Out*/
-DigitalOut dout_2(GPIO_2);
+/**TIM15_CH1-->PA2*/
+TIM_HandleTypeDef htim15;
 
 /*I2C*/
 I2C i2c(I2C0_DATA, I2C0_CLK); ///<i2C define
 
-/*PwmOut*/
-PwmOut pwmOut_8(PWM_0);//onda quadra fisicamente in din_12
-
-//#if DPCONTROL_DEBUG_TIMER
-/*Timer*/
-Timer timer_water_thread;
-//#endif
+//long count=0;
 
 /** @brief print message via serial
  *
@@ -106,33 +92,6 @@ int node_printf_to_serial(const char * format, ...)
 	}
 
 	return 0;
-}
-
-void callback_isr13_rise( void )
-{
-	g_water_counter++;
-
-/*Set Out to follow in (debug only)*/
-#if DPCONTROL_DEBUG_OSCILLOSCOPE
-	dout_2.write(intIn_13.read());
-#endif
-
-#if DPCONTROL_DEBUG_PRINT_INT_RISE
-	NODE_DEBUG("\n\r INTO INTERRUPT 13_RISE---> g_water_counter=%d    \n\r",g_water_counter);
-#endif
-}
-
-void callback_isr13_fall( void )
-{
-/*Set OUT to follow IN (debug only)*/
-#if DPCONTROL_DEBUG_OSCILLOSCOPE
-
-	#if DPCONTROL_DEBUG_PRINT_INT_FALL
-		NODE_DEBUG("\n\r INTO INTERRUPT 13_FALL---> g_water_counter=%d    \n\r",g_water_counter);
-	#endif
-
-		dout_2.write(intIn_13.read());
-#endif
 }
 
 /** @brief Temperature and humidity sensor read
@@ -168,6 +127,20 @@ static unsigned int hdc1510_sensor(void)
 /** @brief Temperature and humidity sensor thread
  *
  */
+static void node_counter_thread(void const *args)
+{
+  while(1)
+	{
+			Thread::wait(2000);
+	    g_water_counter=__HAL_TIM_GetCounter(&htim15);    //read TIM15 counter value
+			//NODE_DEBUG("\n\r node_counter_thread");
+			//NODE_DEBUG("\n\r g_water_counter=%d\n\r",g_water_counter);
+	}
+
+}
+/** @brief Temperature and humidity sensor thread
+ *
+ */
 static void node_sensor_temp_hum_thread(void const *args)
 {
   while(1)
@@ -177,7 +150,6 @@ static void node_sensor_temp_hum_thread(void const *args)
 	}
 
 }
-
 
 /** @brief node tx procedure done
  *
@@ -392,7 +364,10 @@ unsigned char node_get_sensor_data (char *data)
  */
 void node_state_loop()
 {
+
 	static unsigned char join_state=0;/*0:init state, 1:not joined, 2: joined*/
+
+  //NODE_DEBUG("6.into while state loop\r\n");
 
 	nodeApiSetTxDoneCb(node_tx_done_cb);
 	nodeApiSetRxDoneCb(node_rx_done_cb);
@@ -457,7 +432,7 @@ void node_state_loop()
 				}
 				else
 				{
-					NODE_DEBUG("NODE_DEEP_SLEEP_MODE_SUPPORT =%d\n\r ",NODE_DEEP_SLEEP_MODE_SUPPORT);
+					//NODE_DEBUG("NODE_DEEP_SLEEP_MODE_SUPPORT =%d\n\r ",NODE_DEEP_SLEEP_MODE_SUPPORT);
 					#if NODE_DEEP_SLEEP_MODE_SUPPORT
 					nodeApiSetDevSleepRTCWakeup(NODE_ACTIVE_PERIOD_IN_SEC);
 					#else
@@ -481,7 +456,7 @@ void node_state_loop()
 
 				if(frame_len==0)
 				{
-					NODE_DEBUG("3.node_state=NODE_STATE_LOWPOWER\r\n");
+					//NODE_DEBUG("3.node_state=NODE_STATE_LOWPOWER\r\n");
 					node_state=NODE_STATE_LOWPOWER;
 					break;
 				}
@@ -524,7 +499,7 @@ void node_state_loop()
 					NODE_DEBUG("\n\r");
 
 				}
-				NODE_DEBUG("4.node_state=NODE_STATE_LOWPOWER\r\n");
+				//NODE_DEBUG("4.node_state=NODE_STATE_LOWPOWER\r\n");
 				node_state=NODE_STATE_LOWPOWER;
 				break;
 			}
@@ -537,20 +512,20 @@ void node_state_loop()
 }
 
 /* TIM1 init function */
-static void MX_TIM1_Init(void)
+static void MX_TIM15_Init(void)
 {
 
   TIM_SlaveConfigTypeDef sSlaveConfig;
   TIM_MasterConfigTypeDef sMasterConfig;
 
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 10000;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
+  htim15.Instance = TIM15;
+  htim15.Init.Prescaler = 0;
+  htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim15.Init.Period = 10000;
+  htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim15.Init.RepetitionCounter = 50;
   //htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  if (HAL_TIM_Base_Init(&htim15) != HAL_OK)
   {
 		printf("\r\n _Error_Handler\r\n");
 		while(1){};
@@ -560,8 +535,8 @@ static void MX_TIM1_Init(void)
   sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
   sSlaveConfig.InputTrigger = TIM_TS_TI1FP1;
   sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
-  sSlaveConfig.TriggerFilter = 50;
-  if (HAL_TIM_SlaveConfigSynchronization(&htim1, &sSlaveConfig) != HAL_OK)
+  sSlaveConfig.TriggerFilter = 0;
+  if (HAL_TIM_SlaveConfigSynchronization(&htim15, &sSlaveConfig) != HAL_OK)
   {
 		printf("\r\n _Error_Handler\r\n");
 		while(1){};
@@ -569,15 +544,20 @@ static void MX_TIM1_Init(void)
   }
 
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  //sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim15, &sMasterConfig) != HAL_OK)
   {
 		printf("\r\n _Error_Handler\r\n");
 		while(1){};
     //_Error_Handler(__FILE__, __LINE__);
   }
 
+}
+
+static void MX_TIM15_Reset(void)
+{
+	TIM15->CNT = 0;
 }
 
 /** Pinout Configuration
@@ -596,6 +576,7 @@ int main ()
 {
 	/*Create sensor thread*/
 	Thread *p_node_sensor_temp_hum_thread;
+	Thread *p_node_counter_thread;
 
 	/* Init carrier board, must be first step */
 	nodeApiInitCarrierBoard();
@@ -606,6 +587,7 @@ int main ()
 	nodeApiInit();
 
 	p_node_sensor_temp_hum_thread=new Thread(node_sensor_temp_hum_thread);
+	p_node_counter_thread=new Thread(node_counter_thread);
 
 	node_show_version();
 
@@ -622,57 +604,31 @@ int main ()
 
 	Thread::wait(1000);
 
-	/*Gpio Settings*/
-	intIn_13.mode(PullDown);
-	intIn_13.rise(&callback_isr13_rise);
+	NODE_DEBUG("\n\rHAL_Init\r\n");
+	HAL_Init();
+	NODE_DEBUG("\n\rMX_GPIO_Init\r\n");
+	MX_GPIO_Init();
+	NODE_DEBUG("\n\rMX_TIM1_Init\r\n");
+	MX_TIM15_Init();
+	NODE_DEBUG("\n\rHAL_TIM_Base_Start\r\n");
+	HAL_TIM_Base_Start(&htim15);    //Start TIM1 without interrupt
 
-	//intIn_7.mode(PullDown);
-	//intIn_7.rise(&callback_isr7);
-
-
-#if DPCONTROL_DEBUG_OSCILLOSCOPE
-	intIn_13.fall(&callback_isr13_fall);
-#endif
-
-#if DPCONTROL_DEBUG_PWM
-	/*Pwm Settings*/
-	pwmOut_8.period_ms(1);      		// Periof(Frequency)  1ms(1kHz)
-	pwmOut_8.write(0.50f);      // 50% duty cycle, relative to period
-#endif
-
-NODE_DEBUG("\n\rHAL_Init\r\n");
-HAL_Init();
-NODE_DEBUG("\n\rMX_GPIO_Init\r\n");
-MX_GPIO_Init();
-NODE_DEBUG("\n\rMX_TIM1_Init\r\n");
-MX_TIM1_Init();
-NODE_DEBUG("\n\rHAL_TIM_Base_Start\r\n");
-HAL_TIM_Base_Start(&htim1);    //Start TIM1 without interrupt
-	/*Debounce Settings*/
-	//DebouncedInterrupt user_interrupt2(GPIO_2, PullDown);
-	//user_interrupt2.attach(button_push_isr2, IRQ_RISE, 10, true);
-	//DebouncedInterrupt user_interrupt12(ADC_2/GPIO_12, PullDown);
-	//user_interrupt12.attach(button_push_isr12, IRQ_RISE, 10, true);
 
 #if DPCONTROL_DEBUG_PRINT_START
 		NODE_DEBUG("\n\rSystemCoreClock=%d\r\n",SystemCoreClock);
 		NODE_DEBUG("\n\rStart Node Loop\r\n");
 #endif
 
+	printf("\n\r count=%d\n\r",__HAL_TIM_GetCounter(&htim15));
+
+	/* Reset the Counter Register value */
+	printf("\n\r Reset Counter \n\r");
+	MX_TIM15_Reset();
+	printf("\n\r count=%d\n\r",__HAL_TIM_GetCounter(&htim15));
+
 	/*Node state loop*/
-	//node_state_loop();
-count = __HAL_TIM_GetCounter(&htim1);
-printf("\n\r count=%d\n\r",count);
-printf("\n\r Reset Counter \n\r");
-/* Reset the Counter Register value */
-  TIM1->CNT = 0;
-printf("\n\r count=%d\n\r",count);
-while(1)
-{
-	 count = __HAL_TIM_GetCounter(&htim1);    //read TIM2 counter value
-	 printf("\n\r count=%d\n\r",count);
-	 Thread::wait(1000);
-}
+	node_state_loop();
+
 	/*Never reach here*/
 	return 0;
 }
